@@ -1,0 +1,6 @@
+name: gel
+channels:
+  - conda-forge
+dependencies:
+  - pycodestyle
+  - python=3.15
