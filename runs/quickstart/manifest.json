@@ -1,0 +1,16 @@
+{
+  "bond_count": 467,
+  "bond_edges": "undirected_unique",
+  "boundary_conditions": "periodic_xyz",
+  "box_length_nm": 12.0,
+  "event_count": 487,
+  "final_step": 300,
+  "particle_count": 480,
+  "particle_ids": "zero_based_contiguous",
+  "physical_time_per_step_s": 0.05,
+  "reaction_event_missing_partner": -1,
+  "schema_version": "1.0",
+  "seed": 42,
+  "snapshot_count": 16,
+  "time_unit": "simulation_step"
+}
