@@ -1,0 +1,22 @@
+{
+  "bond_length_nm": 0.82,
+  "box_length_nm": 12.0,
+  "capture_radius_nm": 1.5,
+  "constraint_iterations": 8,
+  "crosslinker_concentration_mol_l": 0.05,
+  "crosslinker_diffusion_nm2_s": 0.5,
+  "crosslinker_functionality": 2,
+  "initiation_probability": 0.12,
+  "initiator_concentration_mol_l": 0.012,
+  "initiator_diffusion_nm2_s": 1.0,
+  "max_steps": 300,
+  "monomer_concentration_mol_l": 0.4,
+  "monomer_diffusion_nm2_s": 0.8,
+  "propagation_probability": 0.45,
+  "quench_at_end": true,
+  "seed": 42,
+  "snapshot_interval": 20,
+  "termination_combination_probability": 0.03,
+  "termination_disproportionation_probability": 0.01,
+  "time_step_s": 0.05
+}

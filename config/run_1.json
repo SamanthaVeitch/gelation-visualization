@@ -1,0 +1,22 @@
+{
+  "monomer_concentration_mol_l": 0.4,
+  "crosslinker_concentration_mol_l": 0.05,
+  "initiator_concentration_mol_l": 0.012,
+  "crosslinker_functionality": 2,
+  "box_length_nm": 20,
+  "seed": 42,
+  "max_steps": 1000,
+  "snapshot_interval": 20,
+  "time_step_s": 0.05,
+  "capture_radius_nm": 1.5,
+  "bond_length_nm": 0.82,
+  "constraint_iterations": 8,
+  "monomer_diffusion_nm2_s": 0.8,
+  "crosslinker_diffusion_nm2_s": 0.5,
+  "initiator_diffusion_nm2_s": 1.0,
+  "initiation_probability": 0.12,
+  "propagation_probability": 0.45,
+  "termination_combination_probability": 0.03,
+  "termination_disproportionation_probability": 0.01,
+  "quench_at_end": true
+}

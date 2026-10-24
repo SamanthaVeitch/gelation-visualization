@@ -1,0 +1,17 @@
+step,particles_file,bonds_file
+0,snapshots/step_000000_particles.csv,snapshots/step_000000_bonds.csv
+20,snapshots/step_000020_particles.csv,snapshots/step_000020_bonds.csv
+40,snapshots/step_000040_particles.csv,snapshots/step_000040_bonds.csv
+60,snapshots/step_000060_particles.csv,snapshots/step_000060_bonds.csv
+80,snapshots/step_000080_particles.csv,snapshots/step_000080_bonds.csv
+100,snapshots/step_000100_particles.csv,snapshots/step_000100_bonds.csv
+120,snapshots/step_000120_particles.csv,snapshots/step_000120_bonds.csv
+140,snapshots/step_000140_particles.csv,snapshots/step_000140_bonds.csv
+160,snapshots/step_000160_particles.csv,snapshots/step_000160_bonds.csv
+180,snapshots/step_000180_particles.csv,snapshots/step_000180_bonds.csv
+200,snapshots/step_000200_particles.csv,snapshots/step_000200_bonds.csv
+220,snapshots/step_000220_particles.csv,snapshots/step_000220_bonds.csv
+240,snapshots/step_000240_particles.csv,snapshots/step_000240_bonds.csv
+260,snapshots/step_000260_particles.csv,snapshots/step_000260_bonds.csv
+280,snapshots/step_000280_particles.csv,snapshots/step_000280_bonds.csv
+300,snapshots/step_000300_particles.csv,snapshots/step_000300_bonds.csv
