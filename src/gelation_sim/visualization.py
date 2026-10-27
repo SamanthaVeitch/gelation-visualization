@@ -8,6 +8,10 @@ def plot_network(network):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
+    
+    for particle in network.particles:
+        x, y, z = particle.position
+        ax.scatter(x, y, z)
 
     ax.set_xlabel("X (nm)")
     ax.set_ylabel("Y (nm)")
