@@ -8,6 +8,7 @@ __pycache__/
 
 #Folders
 data/
+*.egg-info/
 
 #File types
 *.txt
