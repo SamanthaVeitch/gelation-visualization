@@ -4,6 +4,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from PIL import Image
 
 
 def plot_network(network):
@@ -80,6 +81,10 @@ def plot_network(network):
     ax.set_ylabel("Y (nm)")
     ax.set_zlabel("Z (nm)")
 
+    ax.set_xlim(0, 12.5)
+    ax.set_ylim(0, 12.5)
+    ax.set_zlim(0, 12.5)
+
     # Display the current simulation step.
     ax.set_title(f"Network at step {network.time}")
 
@@ -116,3 +121,49 @@ def plot_snapshots(snapshots, output_dir):
         fig.savefig(output_dir / filename, dpi=150)
 
         plt.close(fig)
+
+
+def animate_snapshots(snapshots, output_file):
+    """
+    Create an animated GIF showing network evolution.
+
+    Parameters
+    ----------
+    snapshots : list[Network]
+        Network snapshots at different simulation steps.
+    output_file : str or Path
+        Filename for the generated GIF.
+
+    Returns
+    -------
+    None
+        The animation is saved to the specified file.
+    """
+
+    frames = []
+
+    # Generate an image for each network snapshot.
+    for network in snapshots:
+        fig = plot_network(network)
+
+        # Render the figure before capturing the image.
+        fig.canvas.draw()
+
+        # Convert the rendered figure into a Pillow image.
+        frame = Image.frombytes(
+            "RGBA",
+            fig.canvas.get_width_height(),
+            fig.canvas.buffer_rgba()
+        )
+
+        frames.append(frame)
+        plt.close(fig)
+
+    # Save all frames as an animated GIF.
+    frames[0].save(
+        output_file,
+        save_all=True,
+        append_images=frames[1:],
+        duration=300,
+        loop=0,
+    )

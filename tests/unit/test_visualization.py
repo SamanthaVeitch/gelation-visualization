@@ -7,11 +7,17 @@ matplotlib.use("Agg")
 from pathlib import Path  # noqa: E402
 from tempfile import TemporaryDirectory  # noqa: E402
 
+from PIL import Image  # noqa: E402
+
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 
 from gelation_sim.model import Network, Particle  # noqa: E402
-from gelation_sim.visualization import plot_network, plot_snapshots  # noqa: E402
+from gelation_sim.visualization import (
+    plot_network,
+    plot_snapshots,
+    animate_snapshots,
+)  # noqa: E402
 
 
 class TestVisualization(unittest.TestCase):
@@ -122,6 +128,31 @@ class TestVisualization(unittest.TestCase):
             self.assertTrue(
                 (Path(directory) / "step_000001.png").is_file()
             )
+
+    def test_animate_snapshots_creates_gif(self):
+        """Verify that snapshots produce a multi-frame GIF."""
+
+        particles = [
+            Particle(0, "monomer", [0.0, 0.0, 0.0], 1),
+            Particle(1, "crosslinker", [1.0, 1.0, 1.0], 2),
+        ]
+
+        network = Network(particles)
+        initial = network.snapshot()
+
+        network.add_bond(0, 1, step=1)
+        network.time = 1
+        final = network.snapshot()
+
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "animation.gif"
+
+            animate_snapshots([initial, final], output)
+
+            self.assertTrue(output.is_file())
+
+            with Image.open(output) as gif:
+                self.assertEqual(gif.n_frames, 2)
 
     def tearDown(self):
         """Close all Matplotlib figures after each test."""
