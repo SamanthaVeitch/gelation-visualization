@@ -4,11 +4,14 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+from pathlib import Path  # noqa: E402
+from tempfile import TemporaryDirectory  # noqa: E402
+
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 
 from gelation_sim.model import Network, Particle  # noqa: E402
-from gelation_sim.visualization import plot_network  # noqa: E402
+from gelation_sim.visualization import plot_network, plot_snapshots  # noqa: E402
 
 
 class TestVisualization(unittest.TestCase):
@@ -94,6 +97,31 @@ class TestVisualization(unittest.TestCase):
         self.assertFalse((colors[0] == colors[2]).all())
         self.assertFalse((colors[0] == colors[3]).all())
         self.assertFalse((colors[2] == colors[3]).all())
+
+    def test_plot_snapshots_saves_multiple_figures(self):
+        """Verify that each snapshot produces a PNG file."""
+
+        particles = [
+            Particle(0, "monomer", [0.0, 0.0, 0.0], 1),
+            Particle(1, "crosslinker", [1.0, 1.0, 1.0], 2),
+        ]
+
+        network = Network(particles, time=0)
+        initial = network.snapshot()
+
+        network.add_bond(0, 1, step=1)
+        network.time = 1
+        final = network.snapshot()
+
+        with TemporaryDirectory() as directory:
+            plot_snapshots([initial, final], directory)
+
+            self.assertTrue(
+                (Path(directory) / "step_000000.png").is_file()
+            )
+            self.assertTrue(
+                (Path(directory) / "step_000001.png").is_file()
+            )
 
     def tearDown(self):
         """Close all Matplotlib figures after each test."""

@@ -1,6 +1,8 @@
 
 """3D visualization tools for polymer networks."""
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 
 
@@ -55,7 +57,11 @@ def plot_network(network):
     for species, color in species_colors.items():
         ax.scatter([], [], [], c=color, label=species)
 
-    ax.legend(title="Species")
+    ax.legend(
+        title="Species",
+        loc="upper left",
+        bbox_to_anchor=(0.8, 1.1)
+    )
 
     # Draw a line between the positions of each bonded pair.
     for particle_a, particle_b in network.bonds:
@@ -74,5 +80,39 @@ def plot_network(network):
     ax.set_ylabel("Y (nm)")
     ax.set_zlabel("Z (nm)")
 
+    # Display the current simulation step.
+    ax.set_title(f"Network at step {network.time}")
+
     # Return the figure for saving or further customization.
     return fig
+
+
+def plot_snapshots(snapshots, output_dir):
+    """
+    Generate and save a 3D visualization for each network snapshot.
+
+    Parameters
+    ----------
+    snapshots : list[Network]
+        Network snapshots from different simulation steps.
+    output_dir : str or Path
+        Directory where the generated PNG files will be saved.
+
+    Returns
+    -------
+    None
+        Figures are saved to the output directory.
+    """
+
+    # Create the output directory if it does not exist.
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate and save a figure for each simulation snapshot.
+    for network in snapshots:
+        fig = plot_network(network)
+
+        filename = f"step_{network.time:06d}.png"
+        fig.savefig(output_dir / filename, dpi=150)
+
+        plt.close(fig)
