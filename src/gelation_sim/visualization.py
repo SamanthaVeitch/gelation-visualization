@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 
-def plot_network(network):
+def plot_network(network, box_length=None):
     """
     Create a 3D visualization of a polymer network.
 
@@ -15,12 +15,16 @@ def plot_network(network):
     3D space. Bonds between particles are represented as lines
     connecting their positions.
 
-    Parameters
+       Parameters
     ----------
     network : Network
         Polymer network containing particles and bonds.
         Each particle must have a position with x, y, and z
         coordinates. Bonds must contain pairs of particle indices.
+    box_length : float, optional
+        Length of the cubic simulation box in nanometers.
+        When provided, all three axes use fixed limits from
+        zero to the specified box length.
 
     Returns
     -------
@@ -81,9 +85,11 @@ def plot_network(network):
     ax.set_ylabel("Y (nm)")
     ax.set_zlabel("Z (nm)")
 
-    ax.set_xlim(0, 12.5)
-    ax.set_ylim(0, 12.5)
-    ax.set_zlim(0, 12.5)
+    # Set fixed axis limits when a simulation box size is provided.
+    if box_length is not None:
+        ax.set_xlim(0, box_length)
+        ax.set_ylim(0, box_length)
+        ax.set_zlim(0, box_length)
 
     # Display the current simulation step.
     ax.set_title(f"Network at step {network.time}")

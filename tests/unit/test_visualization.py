@@ -154,6 +154,24 @@ class TestVisualization(unittest.TestCase):
             with Image.open(output) as gif:
                 self.assertEqual(gif.n_frames, 2)
 
+    
+    def test_plot_network_fixed_axis_limits(self):
+        """Verify that the plot uses the specified simulation box size."""
+
+        particles = [
+            Particle(0, "monomer", [2.0, 3.0, 4.0], 1),
+        ]
+
+        network = Network(particles)
+
+        fig = plot_network(network, box_length=12.0)
+        ax = fig.axes[0]
+
+        self.assertEqual(ax.get_xlim(), (0.0, 12.0))
+        self.assertEqual(ax.get_ylim(), (0.0, 12.0))
+        self.assertEqual(ax.get_zlim(), (0.0, 12.0))
+
+
     def tearDown(self):
         """Close all Matplotlib figures after each test."""
         plt.close("all")
