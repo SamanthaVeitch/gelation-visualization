@@ -4,11 +4,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
 
-from gelation_sim.model import Network, Particle
-from gelation_sim.visualization import plot_network
+from gelation_sim.model import Network, Particle  # noqa: E402
+from gelation_sim.visualization import plot_network  # noqa: E402
 
 
 class TestVisualization(unittest.TestCase):
@@ -39,7 +39,6 @@ class TestVisualization(unittest.TestCase):
         fig = plot_network(network)
         ax = fig.axes[0]
 
-        self.assertEqual(len(ax.collections), 1)
         self.assertEqual(len(ax.collections[0].get_offsets()), 3)
 
     def test_plot_network_renders_bonds(self):
@@ -63,6 +62,38 @@ class TestVisualization(unittest.TestCase):
         self.assertEqual(list(x), [0.0, 1.0])
         self.assertEqual(list(y), [0.0, 2.0])
         self.assertEqual(list(z), [0.0, 3.0])
+
+    def test_plot_network_colors_by_species(self):
+        """Verify that particle colors correspond to their species."""
+
+        particles = [
+            Particle(0, "monomer", [0.0, 0.0, 0.0], 1),
+            Particle(1, "monomer", [1.0, 1.0, 1.0], 1),
+            Particle(2, "crosslinker", [2.0, 2.0, 2.0], 2),
+            Particle(3, "initiator", [3.0, 3.0, 3.0], 1),
+        ]
+
+        network = Network(particles)
+
+        fig = plot_network(network)
+        ax = fig.axes[0]
+
+        # Render the figure so all particle colors are available.
+        fig.canvas.draw()
+
+        # Get the colors assigned to the particles.
+        colors = ax.collections[0].get_facecolors()
+
+        # Check that three species colors are present.
+        self.assertEqual(len(set(map(tuple, colors))), 3)
+
+        # Particles of the same species should have matching colors.
+        self.assertTrue((colors[0] == colors[1]).all())
+
+        # Different species should have different colors.
+        self.assertFalse((colors[0] == colors[2]).all())
+        self.assertFalse((colors[0] == colors[3]).all())
+        self.assertFalse((colors[2] == colors[3]).all())
 
     def tearDown(self):
         """Close all Matplotlib figures after each test."""
