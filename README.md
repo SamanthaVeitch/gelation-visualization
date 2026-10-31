@@ -154,6 +154,82 @@ Brownian displacement. Do not append directly to `Network.bonds` or edit
 `Particle.bonded`; use `Network.add_bond(...)` to preserve consistency. The
 network records each undirected bond once, but both particles list each other.
 
+## Numerical kinetic analysis
+
+`gelation\_sim.analysis` provides read-only helpers for analyzing `Network`
+snapshots, the chronological reaction-event log, and their associated
+`SimulationConfig`. Analysis is separate from the simulator and is output into two CSV files. Functions can be used with either a
+fresh `SimulationResult` or one reconstructed by `load\_result()`.
+
+### Available calculations
+
+|Function|Calculation or result|
+|-|-|
+|`calc\_conc(num, config)`|Particle count converted to concentration (mol/L) using the simulation box volume.|
+|`calc\_time(step, config)`|Simulation step converted to elapsed seconds.|
+|`calc\_interval(start, end, config)`|Time elapsed between two simulation steps, in seconds.|
+|`calc\_init(steps, events, config)`|Remaining initiator count, fraction, and concentration at requested steps.|
+|`calc\_kd(init\_data, config)`|Effective initiator activation coefficient (s^-1) from the slope of log remaining-initiator fraction versus time.|
+|`calc\_half\_life(kd)`|Fitted initiator half-life, `ln(2) / kd`, in seconds.|
+|`calc\_init\_rate(steps, events, config)`|Observed initiation-event rate in mol/(L s) over consecutive step intervals.|
+|`calc\_init\_eff(events)`|Fraction of *resolved* initiations that successfully propagate.|
+|`calc\_rad(snapshots, events, config)`|Active radical count and concentration at every snapshot.|
+|`calc\_kp(snapshots, events, config)`|Interval propagation counts, observed polymerization rates, and effective propagation coefficients.|
+|`fit\_kp(kp\_data)`|Single effective propagation coefficient from a least-squares fit through the origin.|
+|`calc\_kt(snapshots, events, config)`|Interval conventional termination counts, radical disappearance rates, effective termination coefficients, and vinyl conversion.|
+|`fit\_kt(kt\_data, max\_conv=0.10)`|Low-conversion effective termination coefficient from a least-squares fit through the origin.|
+|`calc\_rad\_ss(conc, kd, kt, eff)`|**Theoretical** steady-state radical concentration (mol/L).|
+|`calc\_poly\_rate\_ss(kp, mon\_conc, rad\_ss)`|**Theoretical** steady-state polymerization rate (mol/(L s)).|
+|`calc\_chain\_len(steps, events)`|Aggregate kinetic chain-length estimate over consecutive step intervals.|
+|`calc\_chain\_len\_run(events)`|Aggregate kinetic chain-length estimate over the complete event log.|
+
+The `steps` arguments use discrete simulation steps, not seconds. For interval
+calculations, the starting step is excluded and the ending step is included.
+Event logs must be chronological; snapshots must be ordered by simulation step.
+A rate for an interval requires at least two steps or snapshots.
+
+
+The functions return numerical values or lists of tuples; they do not modify
+snapshots or write CSV files. A fitted coefficient or theoretical prediction
+may be `None` when the required observations are insufficient or the
+calculation is undefined. `calc\_half\_life(None)` returns `None`, while zero or
+negative `kd` raises `ValueError` in the current implementation.
+
+### Scientific interpretation and limitations
+
+* **Observed versus predicted:** initiator depletion, initiation rates,
+radical concentrations, propagation rates, and termination rates are
+calculated from simulation records. `calc\_rad\_ss()` and
+`calc\_poly\_rate\_ss()` are **theoretical steady-state predictions** used for
+comparison, not additional measurements of the same quantities.
+* **Effective rate coefficients:** `kd`, `kp`, and `kt` are estimated from the
+simulated trajectory, not supplied experimental kinetic constants. The
+simulator uses per-step probabilities and spatial encounter rules; fitted
+coefficients depend on these modeling choices. Interval `kp` and `kt`
+calculations approximate concentrations using snapshot endpoints.
+* **Low-conversion termination fit:** `fit\_kt()` defaults to `max\_conv=0.10`,
+retaining intervals ending at or below 10% overall vinyl-group conversion.
+This cutoff is an analysis choice, not a universal physical threshold.
+Network formation and spatial restrictions may change effective `kt` later.
+* **Initiator efficiency:** `calc\_init\_eff()` returns successful initiations
+divided by successful plus unsuccessful *resolved* initiations. Quenched
+and still-active attempts are excluded. This is not conventional chemical
+initiator efficiency: the simulator creates one radical per activation,
+not two radical fragments per decomposed initiator. The theoretical
+steady-state prediction uses this model-specific fraction as an effective
+approximation.
+* **Final-step quenching:** `calc\_rad()` and `calc\_kt()` correct the final
+radical count for administrative quench events where applicable, so their
+final radical concentrations represent the state before quenching.
+Administrative quenching is excluded from conventional termination rates
+and kinetic chain-length denominators.
+* **Kinetic chain length:** `calc\_chain\_len()` and `calc\_chain\_len\_run()` use
+propagation counts divided by twice the number of conventional termination
+events. These are aggregate estimates, not measured lengths of individual
+radical lineages. Propagations from unfinished lineages may be included.
+Results are `None` when no conventional terminations occur.
+
+
 ## Output structure
 
 ```text
@@ -163,12 +239,16 @@ gelation_project/
 ├── src/gelation_sim/
 │   ├── __init__.py
 │   ├── __main__.py
+│   ├── analysis.py
 │   ├── config.py
 │   ├── model.py
 │   ├── simulator.py
 │   └── export.py
 ├── tests/
-├── .github/workflows/tests.yml
+├── .github/workflows/
+│   ├── func_tests.yml
+│   ├── style_check.yml
+│   └── unit_tests.yml
 ├── pyproject.toml
 ├── README.md
 └── runs/                         # created on demand; ignored by Git
@@ -202,6 +282,9 @@ gelation_project/
   schema as the final output.
 - `manifest.json`: schema version, units, periodic geometry, IDs, seed, final
   step, and output sizes. `config.json` preserves all model assumptions.
+
+- `validation_constants.csv`: `Name,value,units`. Contains the non-time dependent calculated values and the values given during configuration.
+- `validation_equations.csv`: `Time,[I],[M],[P radical],Ni,Nm,Nr,InitiatorFractionRemaining,InitiationRate,RadicalDisappearanceRate,SimulatedPolymerizationRate` The rows contain the values at each snap shot.
 
 The public `load_result(path)` function reconstructs `Network`, `Bond`,
 `Particle`, `snapshots`, and `events_log` directly from these files. For just
