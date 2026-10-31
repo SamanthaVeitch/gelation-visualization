@@ -389,3 +389,75 @@ def calc_rad_ss(conc, kd, kt, eff):
         raise ValueError("Invalid steady-state calculation inputs.")
 
     return math.sqrt(eff * kd * conc / kt)
+
+
+# Polymer calculations
+def calc_poly_rate_ss(kp, mon_conc, rad_ss):
+    """Calculate theoretical steady-state polymerization rate."""
+    if any(value is None for value in (kp, mon_conc, rad_ss)):
+        return None
+    elif kp < 0 or mon_conc < 0 or rad_ss < 0:
+        raise ValueError("Inputs must be nonnegative.")
+
+    return kp * mon_conc * rad_ss
+
+
+def calc_chain_len(steps, events):
+    """Calculate aggregate kinetic chain length by simulation interval.
+
+    Uses events within steps, not individual radical lineages.
+    Quenching is excluded.
+    """
+    if any(not isinstance(step, int) or step < 0 for step in steps):
+        raise ValueError("steps must contain nonnegative integers.")
+
+    elif any(a >= b for a, b in zip(steps, steps[1:])):
+        raise ValueError("steps must be in strictly ascending order.")
+
+    results = []
+    event_idx = 0
+
+    for start, end in zip(steps, steps[1:]):
+        while event_idx < len(events) and events[event_idx][0] <= start:
+            event_idx += 1
+
+        prop_num = 0
+        term_num = 0
+
+        while event_idx < len(events) and events[event_idx][0] <= end:
+            reaction = events[event_idx][1]
+
+            if reaction == "propagation":
+                prop_num += 1
+            elif reaction in (
+                "termination_combination",
+                "termination_disproportionation",
+            ):
+                term_num += 1
+
+            event_idx += 1
+
+        chain_len = prop_num / (2 * term_num) if term_num else None
+        results.append((start, end, prop_num, term_num, chain_len))
+
+    return results
+
+
+def calc_chain_len_run(events):
+    """Calculate completed-run aggregate kinetic chain length.
+
+    Administrative quenching is excluded.
+    """
+    prop_num = 0
+    term_num = 0
+
+    for step, reaction, a, b in events:
+        if reaction == "propagation":
+            prop_num += 1
+        elif reaction in (
+            "termination_combination",
+            "termination_disproportionation",
+        ):
+            term_num += 1
+
+    return prop_num / (2 * term_num) if term_num else None

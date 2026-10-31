@@ -21,7 +21,11 @@ from gelation_sim.analysis import (
     calc_init_rate,
     # radicals
     calc_rad,
-    calc_rad_ss
+    calc_rad_ss,
+    # polymer
+    calc_poly_rate_ss,
+    calc_chain_len,
+    calc_chain_len_run,
 )
 from gelation_sim.config import AVOGADRO, SimulationConfig
 from gelation_sim.model import Network, Particle
@@ -292,3 +296,56 @@ def test_calc_rad_ss():
     assert calc_rad_ss(0, 0.1, 100.0, 0.5) == 0
     assert calc_rad_ss(0.01, 0.1, 0, 0.5) is None
     assert calc_rad_ss(0.01, None, 100.0, 0.5) is None
+
+
+# polymer
+def test_calc_poly_rate_ss():
+    """Check theoretical steady-state polymerization rate."""
+    assert calc_poly_rate_ss(100.0, 0.01, 0.002) == pytest.approx(
+        0.002
+    )
+
+    assert calc_poly_rate_ss(100.0, 0, 0.002) == 0
+    assert calc_poly_rate_ss(100.0, 0.01, None) is None
+
+    with pytest.raises(ValueError):
+        calc_poly_rate_ss(-1.0, 0.01, 0.002)
+
+
+def test_calc_chain_len():
+    """Check aggregate chain length across simulation intervals."""
+    events = [
+        [1, "initiation", 0, -1],
+        [2, "propagation", 0, 1],
+        [3, "propagation", 1, 2],
+        [4, "termination_combination", 2, 3],
+        [5, "propagation", 4, 5],
+        [6, "termination_quench", 5, -1],
+        [7, "propagation", 6, 7],
+        [8, "termination_disproportionation", 7, 8],
+    ]
+
+    results = calc_chain_len([0, 5, 10], events)
+
+    assert [row[2:4] for row in results] == [
+        (3, 1), (1, 1)
+    ]
+    assert [row[4] for row in results] == pytest.approx(
+        [1.5, 0.5]
+    )
+    assert calc_chain_len([0], events) == []
+
+
+def test_calc_chain_len_run():
+    """Check completed-run chain length and zero termination."""
+    events = [
+        [1, "propagation", 0, 1],
+        [2, "propagation", 1, 2],
+        [3, "termination_combination", 2, 3],
+        [4, "propagation", 4, 5],
+        [5, "termination_disproportionation", 5, 6],
+        [6, "termination_quench", 7, -1],
+    ]
+
+    assert calc_chain_len_run(events) == pytest.approx(0.75)
+    assert calc_chain_len_run([]) is None
