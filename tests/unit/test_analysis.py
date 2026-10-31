@@ -6,6 +6,7 @@ from gelation_sim.analysis import (
     calc_conc,
     calc_interval,
     calc_time,
+    calc_init,
 )
 from gelation_sim.config import AVOGADRO, SimulationConfig
 
@@ -38,3 +39,27 @@ def test_calc_interval(config):
     assert calc_interval(20, 40, config) == pytest.approx(
         20 * config.time_step_s
     )
+
+
+def test_calc_init():
+    """Check initiator depletion at multiple and individual steps."""
+    config = SimulationConfig.from_json("config/example.json")
+    events = [
+        [1, "initiation", 10, -1],
+        [2, "propagation", 10, 20],
+        [5, "initiation", 11, -1],
+    ]
+
+    initial = config.particle_counts()["initiator"]
+    results = calc_init([0, 3, 5], events, config)
+
+    assert [row[1] for row in results] == [
+        initial, initial - 1, initial - 2
+    ]
+    assert results[0][2] == pytest.approx(1.0)
+    assert results[1][3] == pytest.approx(
+        calc_conc(initial - 1, config)
+    )
+
+    single = calc_init([3], events, config)
+    assert single == [results[1]]
