@@ -206,6 +206,42 @@ def fit_kt(kt_data, max_conv=0.10):
     return numerator / denominator if denominator > 0 else None
 
 
+def calc_init_eff(events):
+    """Calculate the fraction of resolved initiations that propagate.
+
+    Returns:
+        Fraction of successful initiations
+        over (successful initiations + successful initiations),
+        or None if no initiations have resolved.
+    """
+    active = set()
+    successful = 0
+    unsuccessful = 0
+
+    for step, reaction, a, b in events:
+        if reaction == "initiation":
+            active.add(a)
+
+        elif reaction == "propagation" and a in active:
+            active.remove(a)
+            successful += 1
+
+        elif reaction in (
+            "termination_combination",
+            "termination_disproportionation",
+        ):
+            for particle_id in (a, b):
+                if particle_id in active:
+                    active.remove(particle_id)
+                    unsuccessful += 1
+
+        elif reaction == "termination_quench":
+            active.discard(a)
+
+    resolved = successful + unsuccessful
+    return successful / resolved if resolved else None
+
+
 # Initiator calculations
 def calc_init(steps, events, config):
     """Calculate initiator depletion at specified simulation steps.

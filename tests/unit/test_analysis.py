@@ -14,6 +14,7 @@ from gelation_sim.analysis import (
     fit_kp,
     calc_kt,
     fit_kt,
+    calc_init_eff,
     # initiator
     calc_init
 )
@@ -147,6 +148,22 @@ def test_calc_kt():
     assert results[0][4] == pytest.approx(expected_squared)
     assert results[0][5] == pytest.approx(expected_kt)
     assert results[0][6] is None
+
+
+def test_calc_init_eff():
+    """Check successful and unsuccessful resolved initiations."""
+    events = [
+        [1, "initiation", 10, -1],
+        [2, "propagation", 10, 20],
+        [3, "initiation", 11, -1],
+        [4, "termination_disproportionation", 11, 30],
+        [5, "initiation", 12, -1],
+        [6, "termination_quench", 12, -1],
+        [7, "initiation", 13, -1],
+    ]
+
+    assert calc_init_eff(events) == pytest.approx(0.5)
+    assert calc_init_eff([]) is None
 
 
 def test_fit_kt():
