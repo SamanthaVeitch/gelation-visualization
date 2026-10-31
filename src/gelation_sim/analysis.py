@@ -207,7 +207,7 @@ def fit_kt(kt_data, max_conv=0.10):
     denominator = 0.0
 
     for start, end, term_rxn_num, rt, conc_squared, kt, conv in kt_data:
-        if conv > max_conv or conc_squared <= 0:
+        if conv is None or conv > max_conv or conc_squared <= 0:
             continue
 
         x = 2 * conc_squared
@@ -461,3 +461,169 @@ def calc_chain_len_run(events):
             term_num += 1
 
     return prop_num / (2 * term_num) if term_num else None
+
+
+# Data export
+def calc_kinetic_params(result):
+    """Calculate and retain shared run-level kinetic results."""
+    snapshots = result.snapshots
+    events = result.events_log
+    config = result.config
+
+    steps = [snapshot.time for snapshot in snapshots]
+    init_data = calc_init(steps, events, config)
+    rad_data = calc_rad(snapshots, events, config)
+    init_rates = calc_init_rate(steps, events, config)
+    kp_data = calc_kp(snapshots, events, config)
+    kt_data = calc_kt(snapshots, events, config)
+
+    kd = calc_kd(init_data, config)
+    kp = fit_kp(kp_data)
+    kt = fit_kt(kt_data) if kt_data else None
+    eff = calc_init_eff(events)
+
+    half_life = (
+        calc_half_life(kd)
+        if kd is not None and kd > 0 else None
+    )
+
+    return {
+        "init_data": init_data,
+        "rad_data": rad_data,
+        "init_rates": init_rates,
+        "kp_data": kp_data,
+        "kt_data": kt_data,
+        "kd": kd,
+        "kp": kp,
+        "kt": kt,
+        "init_eff": eff,
+        "half_life": half_life,
+        "chain_len_run": calc_chain_len_run(events),
+    }
+
+
+def calc_validation_rows(result, params):
+    """Assemble snapshot values for validation_equations.csv."""
+    snapshots = result.snapshots
+    config = result.config
+
+    if not snapshots:
+        return []
+
+    init_data = params["init_data"]
+    rad_data = params["rad_data"]
+    init_rates = params["init_rates"]
+    kp_data = params["kp_data"]
+    kt_data = params["kt_data"]
+
+    kd = params["kd"]
+    kp = params["kp"]
+    kt = params["kt"]
+    eff = params["init_eff"]
+
+    rows = []
+
+    for i, snapshot in enumerate(snapshots):
+        step, ni, fraction, init_conc = init_data[i]
+        _, nr, rad_conc = rad_data[i]
+
+        nm = sum(p.functionality for p in snapshot.particles)
+        mon_conc = calc_conc(nm, config)
+
+        init_rate = None
+        term_rate = None
+        poly_rate = None
+
+        if i > 0:
+            init_rate = init_rates[i - 1][3]
+            term_rate = kt_data[i - 1][3]
+            poly_rate = kp_data[i - 1][3]
+
+        rad_ss = calc_rad_ss(init_conc, kd, kt, eff)
+        poly_ss = calc_poly_rate_ss(kp, mon_conc, rad_ss)
+
+        rows.append((
+            f"step_{step:06d}",
+            calc_time(step, config),
+            init_conc,
+            mon_conc,
+            rad_conc,
+            ni,
+            nm,
+            nr,
+            fraction,
+            init_rate,
+            term_rate,
+            poly_rate,
+            rad_ss,
+            poly_ss,
+        ))
+
+    return rows
+
+
+def calc_validation_constants(result, params):
+    """Assemble run-level constants in the validation workbook order.
+
+    Returns:
+        List of (name, value, units) tuples.
+        Deferred quantities are None. The steady-state radical
+        prediction uses the initial initiator concentration.
+    """
+    config = result.config
+    volume = NM3_TO_LITERS * config.box_length_nm ** 3
+
+    init_data = params["init_data"]
+    init_conc = init_data[0][3] if init_data else None
+
+    rad_ss = calc_rad_ss(
+        init_conc,
+        params["kd"],
+        params["kt"],
+        params["init_eff"],
+    )
+
+    return [
+        ("Seed", config.seed, None),
+        ("Snapshot interval", config.snapshot_interval, "steps"),
+        ("Maximum steps", config.max_steps, "steps"),
+        ("Time per step", config.time_step_s, "s"),
+        ("Total time", calc_time(result.network.time, config), "s"),
+        ("Constraint iterations", config.constraint_iterations, "count"),
+        ("Capture radius", config.capture_radius_nm, "nm"),
+        ("Bond length", config.bond_length_nm, "nm"),
+        ("Box length", config.box_length_nm, "nm"),
+        ("Volume", volume, "L"),
+        ("Crosslinker functionality",
+         config.crosslinker_functionality, "groups/particle"),
+        ("Monomer diffusion",
+         config.monomer_diffusion_nm2_s, "nm^2/s"),
+        ("Crosslinker diffusion",
+         config.crosslinker_diffusion_nm2_s, "nm^2/s"),
+        ("Initiator diffusion",
+         config.initiator_diffusion_nm2_s, "nm^2/s"),
+        ("Initiation probability",
+         config.initiation_probability, "per step"),
+        ("Propagation probability",
+         config.propagation_probability, "per encounter per step"),
+        ("Termination combination probability",
+         config.termination_combination_probability, "per pair trial"),
+        ("Termination disproportionation probability",
+         config.termination_disproportionation_probability,
+         "per pair trial"),
+        ("Quench at end", config.quench_at_end, "boolean"),
+        ("kd", params["kd"], "1/s"),
+        ("kp", params["kp"], "L/(mol*s)"),
+        ("kt", params["kt"], "L/(mol*s)"),
+        ("Initiator efficiency", params["init_eff"], "dimensionless"),
+        ("Initiator half-life", params["half_life"], "s"),
+        ("Predicted steady-state radical concentration",
+         rad_ss, "mol/L"),
+        ("Completed-run kinetic chain length",
+         params["chain_len_run"], "propagations/chain"),
+        ("Predicted mean kinetic chain length",
+         None, "propagations/chain"),
+        ("Mn", None, "g/mol"),
+        ("Mw", None, "g/mol"),
+        ("PDI", None, "dimensionless"),
+    ]
