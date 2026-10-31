@@ -19,6 +19,9 @@ from gelation_sim.analysis import (
     calc_init,
     calc_half_life,
     calc_init_rate,
+    # radicals
+    calc_rad,
+    calc_rad_ss
 )
 from gelation_sim.config import AVOGADRO, SimulationConfig
 from gelation_sim.model import Network, Particle
@@ -249,3 +252,43 @@ def test_calc_init_rate():
     )
 
     assert calc_init_rate([0], events, config) == []
+
+
+# radicals
+def test_calc_rad():
+    """Check radical concentrations and final quench correction."""
+    config = SimulationConfig.from_json("config/example.json")
+
+    snapshots = [
+        Network([
+            Particle(0, "monomer", (0, 0, 0), 1, active_radical=True),
+            Particle(1, "monomer", (1, 0, 0), 1, active_radical=False),
+        ], time=0),
+        Network([
+            Particle(0, "monomer", (0, 0, 0), 1, active_radical=False),
+            Particle(1, "monomer", (1, 0, 0), 1, active_radical=False),
+        ], time=config.max_steps),
+    ]
+
+    events = [
+        [config.max_steps, "termination_quench", 0, -1],
+    ]
+
+    results = calc_rad(snapshots, events, config)
+
+    assert [row[1] for row in results] == [1, 1]
+    assert results[0][2] == pytest.approx(calc_conc(1, config))
+    assert results[1][2] == pytest.approx(calc_conc(1, config))
+
+
+def test_calc_rad_ss():
+    """Check theoretical steady-state radical concentration."""
+    result = calc_rad_ss(0.01, 0.1, 100.0, 0.5)
+
+    assert result == pytest.approx(
+        math.sqrt(0.5 * 0.1 * 0.01 / 100.0)
+    )
+
+    assert calc_rad_ss(0, 0.1, 100.0, 0.5) == 0
+    assert calc_rad_ss(0.01, 0.1, 0, 0.5) is None
+    assert calc_rad_ss(0.01, None, 100.0, 0.5) is None

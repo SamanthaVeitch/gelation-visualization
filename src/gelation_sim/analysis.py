@@ -349,3 +349,43 @@ def calc_init_rate(steps, events, config):
         results.append((start, end, init_num, rate))
 
     return results
+
+
+# Radical calculations
+def calc_rad(snapshots, events, config):
+    """Calculate active radical counts and concentrations at snapshots."""
+    quench_num = 0
+
+    if config.quench_at_end:
+        quench_num = sum(
+            1 for step, reaction, a, b in events
+            if step == config.max_steps
+            and reaction == "termination_quench"
+        )
+
+    results = []
+
+    for snapshot in snapshots:
+        rad_num = sum(
+            p.active_radical for p in snapshot.particles
+        )
+
+        if config.quench_at_end and snapshot.time == config.max_steps:
+            rad_num += quench_num
+
+        conc = calc_conc(rad_num, config)
+        results.append((snapshot.time, rad_num, conc))
+
+    return results
+
+
+def calc_rad_ss(conc, kd, kt, eff):
+    """Calculate theoretical steady-state radical concentration."""
+    if any(value is None for value in (conc, kd, kt, eff)):
+        return None
+    elif kt == 0:
+        return None
+    elif conc < 0 or kd < 0 or kt < 0 or not 0 <= eff <= 1:
+        raise ValueError("Invalid steady-state calculation inputs.")
+
+    return math.sqrt(eff * kd * conc / kt)
