@@ -1,5 +1,6 @@
 """Tests for gelation analysis helpers."""
 
+import csv
 import math
 import pytest
 
@@ -26,9 +27,15 @@ from gelation_sim.analysis import (
     calc_poly_rate_ss,
     calc_chain_len,
     calc_chain_len_run,
+    # data export
+    calc_kinetic_params,
+    calc_validation_rows,
+    calc_validation_constants,
 )
 from gelation_sim.config import AVOGADRO, SimulationConfig
+from gelation_sim.export import export_validation
 from gelation_sim.model import Network, Particle
+from gelation_sim.simulator import SimulationResult
 
 
 @pytest.fixture
@@ -349,3 +356,129 @@ def test_calc_chain_len_run():
 
     assert calc_chain_len_run(events) == pytest.approx(0.75)
     assert calc_chain_len_run([]) is None
+
+
+# Data export
+def test_calc_validation_rows():
+    """Check snapshot row structure and observed concentrations."""
+    config = SimulationConfig.from_json("config/example.json")
+
+    snapshots = [
+        Network([
+            Particle(0, "monomer", (0, 0, 0), 1),
+            Particle(1, "monomer", (1, 0, 0), 1),
+        ], time=0),
+        Network([
+            Particle(0, "monomer", (0, 0, 0), 1),
+            Particle(1, "monomer", (1, 0, 0), 1),
+        ], time=20),
+    ]
+
+    result = SimulationResult(
+        network=snapshots[-1],
+        snapshots=snapshots,
+        events_log=[],
+        config=config,
+    )
+
+    params = calc_kinetic_params(result)
+    rows = calc_validation_rows(result, params)
+
+    assert len(rows) == 2
+    assert all(len(row) == 14 for row in rows)
+
+    assert rows[0][0] == "step_000000"
+    assert rows[1][0] == "step_000020"
+
+    assert rows[1][1] == pytest.approx(calc_time(20, config))
+    assert rows[0][3] == pytest.approx(calc_conc(2, config))
+    assert rows[0][6:8] == (2, 0)
+
+    assert rows[0][9:12] == (None, None, None)
+    assert rows[1][9:12] == (0.0, 0.0, 0.0)
+    assert rows[1][12:14] == (None, None)
+
+
+def test_calc_validation_constants():
+    """Check validation constant values and deferred fields."""
+    config = SimulationConfig.from_json("config/example.json")
+
+    snapshots = [
+        Network([
+            Particle(0, "monomer", (0, 0, 0), 1),
+            Particle(1, "monomer", (1, 0, 0), 1),
+        ], time=0),
+        Network([
+            Particle(0, "monomer", (0, 0, 0), 1),
+            Particle(1, "monomer", (1, 0, 0), 1),
+        ], time=20),
+    ]
+
+    result = SimulationResult(
+        network=snapshots[-1],
+        snapshots=snapshots,
+        events_log=[],
+        config=config,
+    )
+
+    params = calc_kinetic_params(result)
+    constants = calc_validation_constants(result, params)
+    values = {name: value for name, value, units in constants}
+
+    assert len(constants) == 30
+    assert values["Seed"] == config.seed
+    assert values["Box length"] == config.box_length_nm
+    assert values["Total time"] == pytest.approx(
+        calc_time(20, config)
+    )
+    assert values["Initiator efficiency"] is None
+    assert values["Predicted mean kinetic chain length"] is None
+    assert values["Mn"] is None
+    assert values["Mw"] is None
+    assert values["PDI"] is None
+
+
+# CSV
+def test_export_validation(tmp_path):
+    """Check validation CSV headers, values, and empty fields."""
+    rows = [
+        (
+            "step_000000", 0.0, 0.01, 0.2, 0.0,
+            10, 200, 0, 1.0, None, None, None,
+            None, None,
+        ),
+    ]
+    constants = [
+        ("Seed", 42, None),
+        ("kd", 0.001, "1/s"),
+        ("Mn", None, "g/mol"),
+    ]
+
+    constants_path, equations_path = export_validation(
+        rows, constants, tmp_path
+    )
+
+    with constants_path.open(newline="", encoding="utf-8") as handle:
+        constant_data = list(csv.reader(handle))
+
+    with equations_path.open(newline="", encoding="utf-8") as handle:
+        equation_data = list(csv.reader(handle))
+
+    assert constant_data == [
+        ["Value", "", "Units"],
+        ["Seed", "42", ""],
+        ["kd", "0.001", "1/s"],
+        ["Mn", "", "g/mol"],
+    ]
+
+    assert len(equation_data[0]) == 14
+    assert equation_data[0][0] == ""
+    assert equation_data[0][11] == (
+        "Simulated polymerization rate (mol/(L*s))"
+    )
+    assert equation_data[0][12].startswith("Theoretical")
+    assert equation_data[0][13].startswith("Theoretical")
+
+    assert equation_data[1][0] == "step_000000"
+    assert equation_data[1][1] == "0.0"
+    assert equation_data[1][9:] == ["", "", "", "", ""]
