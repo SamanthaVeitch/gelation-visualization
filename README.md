@@ -69,7 +69,7 @@ Set it to `false` if an unfinished network with active radicals is desired.
 
 ## Installation
 
-Recommended: Python 3.10 or newer, in a clean Anaconda or virtual environment.
+Recommended: Python 3.11, in a clean Anaconda or virtual environment.
 From the repository root (works in Anaconda Prompt on Windows):
 
 ```bash
