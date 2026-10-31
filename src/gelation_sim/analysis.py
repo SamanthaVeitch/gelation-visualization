@@ -1,5 +1,6 @@
 """Numerical analysis helpers for gelation simulation data."""
 # Module imports
+import math
 import numpy as np
 
 # Script imports
@@ -29,7 +30,7 @@ def calc_interval(start, end, config):
     if isinstance(start, bool) or not isinstance(start, int) or start < 0:
         raise ValueError("start must be a nonnegative integer.")
 
-    if isinstance(end, bool) or not isinstance(end, int) or end <= start:
+    elif isinstance(end, bool) or not isinstance(end, int) or end <= start:
         raise ValueError("end must be an integer greater than start.")
 
     return calc_time(end - start, config)
@@ -94,7 +95,11 @@ def calc_kp(snapshots, events, config):
         rp = calc_conc(prop_rxn_num, config) / dt
         denom = mon_conc * rad_conc
         conc_product = mon_conc * rad_conc
-        kp = rp / conc_product if conc_product > 0 else None
+
+        if conc_product <= 0:
+            kp = None
+        else:
+            kp = rp / conc_product
 
         results.append((prev.time,
                         curr.time,
@@ -118,7 +123,10 @@ def fit_kp(kp_data):
         numerator += conc_product * rp
         denominator += conc_product ** 2
 
-    return numerator / denominator if denominator > 0 else None
+    if denominator <= 0:
+        return None
+    else:
+        return numerator / denominator
 
 
 def calc_kt(snapshots, events, config):
@@ -166,7 +174,10 @@ def calc_kt(snapshots, events, config):
         rt = 2 * calc_conc(term_rxn_num, config) / dt
 
         denom = 2 * conc_squared
-        kt = rt / denom if denom > 0 else None
+        if denom <= 0:
+            kt = None
+        else:
+            kt = rt / denom
 
         vinyl_num = sum(p.functionality for p in curr.particles)
         conv = (
@@ -203,7 +214,10 @@ def fit_kt(kt_data, max_conv=0.10):
         numerator += x * rt
         denominator += x ** 2
 
-    return numerator / denominator if denominator > 0 else None
+    if denominator <= 0:
+        return None
+    else:
+        return numerator / denominator
 
 
 def calc_init_eff(events):
@@ -239,7 +253,11 @@ def calc_init_eff(events):
             active.discard(a)
 
     resolved = successful + unsuccessful
-    return successful / resolved if resolved else None
+
+    if resolved == 0:
+        return None
+    else:
+        return successful / resolved
 
 
 # Initiator calculations
@@ -256,7 +274,7 @@ def calc_init(steps, events, config):
     if any(not isinstance(step, int) or step < 0 for step in steps):
         raise ValueError("steps must contain nonnegative integers.")
 
-    if any(a >= b for a, b in zip(steps, steps[1:])):
+    elif any(a >= b for a, b in zip(steps, steps[1:])):
         raise ValueError("steps must be in strictly ascending order.")
 
     init_num = config.particle_counts()["initiator"]
@@ -273,8 +291,61 @@ def calc_init(steps, events, config):
         if remaining < 0:
             raise ValueError("Initiation events exceed initial initiators.")
 
-        fraction = remaining / init_num if init_num else None
+        if init_num == 0:
+            fraction = None
+        else:
+            fraction = remaining / init_num
         conc = calc_conc(remaining, config)
         results.append((step, remaining, fraction, conc))
+
+    return results
+
+
+def calc_half_life(kd):
+    """Calculate initiator half-life in seconds."""
+    if kd is None:
+        return None
+    elif kd <= 0:
+        raise ValueError("kd must be positive.")
+    else:
+        return math.log(2) / kd
+
+
+"""
+def calc_init_rate_theor(conc, kd, eff):
+    #Calculate theoretical initiation rate in mol/(L s).
+    if conc < 0 or kd < 0 or not 0 <= eff <= 1:
+        raise ValueError("Invalid concentration, kd, or efficiency.")
+
+    return 2 * eff * kd * conc
+"""
+
+
+def calc_init_rate(steps, events, config):
+    """Calculate simulated initiation rates between consecutive steps."""
+    if any(not isinstance(step, int) or step < 0 for step in steps):
+        raise ValueError("steps must contain nonnegative integers.")
+    elif any(a >= b for a, b in zip(steps, steps[1:])):
+        raise ValueError("steps must be in strictly ascending order.")
+
+    results = []
+    event_idx = 0
+
+    for start, end in zip(steps, steps[1:]):
+        while event_idx < len(events) and events[event_idx][0] <= start:
+            event_idx += 1
+
+        init_num = 0
+
+        while event_idx < len(events) and events[event_idx][0] <= end:
+            if events[event_idx][1] == "initiation":
+                init_num += 1
+
+            event_idx += 1
+
+        dt = calc_interval(start, end, config)
+        rate = calc_conc(init_num, config) / dt
+
+        results.append((start, end, init_num, rate))
 
     return results

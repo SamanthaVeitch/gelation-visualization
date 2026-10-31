@@ -16,7 +16,9 @@ from gelation_sim.analysis import (
     fit_kt,
     calc_init_eff,
     # initiator
-    calc_init
+    calc_init,
+    calc_half_life,
+    calc_init_rate,
 )
 from gelation_sim.config import AVOGADRO, SimulationConfig
 from gelation_sim.model import Network, Particle
@@ -205,3 +207,45 @@ def test_calc_init():
 
     single = calc_init([3], events, config)
     assert single == [results[1]]
+
+
+def test_calc_half_life():
+    """Check effective initiator half-life."""
+    assert calc_half_life(0.1) == pytest.approx(
+        math.log(2) / 0.1
+    )
+    assert calc_half_life(None) is None
+
+    with pytest.raises(ValueError):
+        calc_half_life(-0.1)
+        calc_half_life(0)
+
+
+def test_calc_init_rate():
+    """Check event-based initiation rates and interval boundaries."""
+    config = SimulationConfig.from_json("config/example.json")
+    steps = [0, 10, 20]
+
+    events = [
+        [0, "initiation", 1, -1],
+        [5, "initiation", 2, -1],
+        [10, "initiation", 3, -1],
+        [15, "propagation", 3, 5],
+        [20, "initiation", 4, -1],
+    ]
+
+    results = calc_init_rate(steps, events, config)
+
+    assert len(results) == 2
+
+    assert results[0][:3] == (0, 10, 2)
+    assert results[1][:3] == (10, 20, 1)
+
+    assert results[0][3] == pytest.approx(
+        calc_conc(2, config) / calc_interval(0, 10, config)
+    )
+    assert results[1][3] == pytest.approx(
+        calc_conc(1, config) / calc_interval(10, 20, config)
+    )
+
+    assert calc_init_rate([0], events, config) == []
