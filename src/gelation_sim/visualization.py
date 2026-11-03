@@ -4,7 +4,56 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 from PIL import Image
+
+
+def _periodic_bond_segments(pos_a, pos_b, box_length):
+    """Split bonds that cross periodic simulation boundaries."""
+
+    # Convert particle positions to NumPy arrays.
+    a = np.asarray(pos_a, dtype=float)
+    b = np.asarray(pos_b, dtype=float)
+
+    # Calculate the shortest displacement using periodic boundaries.
+    displacement = b - a
+    displacement = (
+        displacement + box_length / 2
+    ) % box_length - box_length / 2
+
+    # Calculate the endpoint of the shortest periodic bond.
+    end = a + displacement
+
+    # Find where the bond crosses the simulation box boundaries.
+    times = [0.0, 1.0]
+
+    for axis in range(3):
+        if end[axis] < 0:
+            boundary = 0.0
+        elif end[axis] > box_length:
+            boundary = box_length
+        else:
+            continue
+
+        crossing_time = (boundary - a[axis]) / displacement[axis]
+
+        if 0.0 < crossing_time < 1.0:
+            times.append(crossing_time)
+
+    times.sort()
+
+    # Split the bond into segments inside the simulation box.
+    for t0, t1 in zip(times[:-1], times[1:]):
+        if np.isclose(t0, t1):
+            continue
+
+        midpoint = a + (t0 + t1) / 2 * displacement
+        offset = np.floor(midpoint / box_length) * box_length
+
+        start = np.clip(a + t0 * displacement - offset, 0, box_length)
+        stop = np.clip(a + t1 * displacement - offset, 0, box_length)
+
+        yield start, stop
 
 
 def plot_network(network, box_length=None):
@@ -73,12 +122,22 @@ def plot_network(network, box_length=None):
         pos_a = network.particles[particle_a].position
         pos_b = network.particles[particle_b].position
 
-        ax.plot(
-            [pos_a[0], pos_b[0]],
-            [pos_a[1], pos_b[1]],
-            [pos_a[2], pos_b[2]],
-            color="gray",
-        )
+        # Account for periodic boundaries when a box size is provided.
+        if box_length is not None:
+            segments = _periodic_bond_segments(
+                pos_a, pos_b, box_length
+            )
+        else:
+            segments = [(pos_a, pos_b)]
+
+        # Draw each bond segment.
+        for start, stop in segments:
+            ax.plot(
+                [start[0], stop[0]],
+                [start[1], stop[1]],
+                [start[2], stop[2]],
+                color="gray",
+            )
 
     # Label coordinate axes using nanometers.
     ax.set_xlabel("X (nm)")
@@ -98,7 +157,7 @@ def plot_network(network, box_length=None):
     return fig
 
 
-def plot_snapshots(snapshots, output_dir):
+def plot_snapshots(snapshots, output_dir, box_length=None):
     """
     Generate and save a 3D visualization for each network snapshot.
 
@@ -121,7 +180,7 @@ def plot_snapshots(snapshots, output_dir):
 
     # Generate and save a figure for each simulation snapshot.
     for network in snapshots:
-        fig = plot_network(network)
+        fig = plot_network(network, box_length=box_length)
 
         filename = f"step_{network.time:06d}.png"
         fig.savefig(output_dir / filename, dpi=150)
@@ -129,7 +188,7 @@ def plot_snapshots(snapshots, output_dir):
         plt.close(fig)
 
 
-def animate_snapshots(snapshots, output_file):
+def animate_snapshots(snapshots, output_file, box_length=None):
     """
     Create an animated GIF showing network evolution.
 
@@ -150,7 +209,7 @@ def animate_snapshots(snapshots, output_file):
 
     # Generate an image for each network snapshot.
     for network in snapshots:
-        fig = plot_network(network)
+        fig = plot_network(network, box_length=box_length)
 
         # Render the figure before capturing the image.
         fig.canvas.draw()

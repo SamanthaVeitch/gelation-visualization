@@ -50,6 +50,85 @@ class TestVisualization(unittest.TestCase):
 
         self.assertEqual(len(ax.collections[0].get_offsets()), 3)
 
+    def test_plot_network_periodic_bonds(self):
+        """Verify that periodic bonds are split at box boundaries."""
+
+        particles = [
+            Particle(0, "monomer", [0.2, 3.0, 3.0], 1),
+            Particle(1, "monomer", [11.8, 3.0, 3.0], 1),
+        ]
+
+        network = Network(particles)
+        network.add_bond(0, 1, step=0)
+
+        fig = plot_network(network, box_length=12.0)
+        ax = fig.axes[0]
+
+        # The bond should be split into two short segments.
+        self.assertEqual(len(ax.lines), 2)
+
+        # Check the coordinates of the first segment.
+        x, y, z = ax.lines[0].get_data_3d()
+
+        self.assertAlmostEqual(x[0], 0.2)
+        self.assertAlmostEqual(x[1], 0.0)
+        self.assertEqual(list(y), [3.0, 3.0])
+        self.assertEqual(list(z), [3.0, 3.0])
+
+        # Check the coordinates of the second segment.
+        x, y, z = ax.lines[1].get_data_3d()
+
+        self.assertAlmostEqual(x[0], 12.0)
+        self.assertAlmostEqual(x[1], 11.8)
+        self.assertEqual(list(y), [3.0, 3.0])
+        self.assertEqual(list(z), [3.0, 3.0])
+
+    def test_plot_network_multiple_periodic_boundaries(self):
+        """Verify bonds crossing multiple boundaries are split correctly."""
+
+        particles = [
+            Particle(0, "monomer", [0.2, 0.4, 3.0], 1),
+            Particle(1, "monomer", [11.8, 11.9, 3.0], 1),
+        ]
+
+        network = Network(particles)
+        network.add_bond(0, 1, step=0)
+
+        fig = plot_network(network, box_length=12.0)
+        ax = fig.axes[0]
+
+        # The bond crosses both X and Y boundaries.
+        self.assertEqual(len(ax.lines), 3)
+
+        # Check the first segment.
+        x, y, z = ax.lines[0].get_data_3d()
+
+        self.assertAlmostEqual(x[0], 0.2)
+        self.assertAlmostEqual(x[1], 0.0)
+        self.assertAlmostEqual(y[0], 0.4)
+        self.assertAlmostEqual(y[1], 0.15)
+
+        # Check the second segment.
+        x, y, z = ax.lines[1].get_data_3d()
+
+        self.assertAlmostEqual(x[0], 12.0)
+        self.assertAlmostEqual(x[1], 11.88)
+        self.assertAlmostEqual(y[0], 0.15)
+        self.assertAlmostEqual(y[1], 0.0)
+
+        # Check the third segment.
+        x, y, z = ax.lines[2].get_data_3d()
+
+        self.assertAlmostEqual(x[0], 11.88)
+        self.assertAlmostEqual(x[1], 11.8)
+        self.assertAlmostEqual(y[0], 12.0)
+        self.assertAlmostEqual(y[1], 11.9)
+
+        # All segments should remain at Z = 3.0.
+        for line in ax.lines:
+            x, y, z = line.get_data_3d()
+            self.assertEqual(list(z), [3.0, 3.0])
+
     def test_plot_network_renders_bonds(self):
         """Verify that bonds are drawn between connected particles."""
 
@@ -154,7 +233,6 @@ class TestVisualization(unittest.TestCase):
             with Image.open(output) as gif:
                 self.assertEqual(gif.n_frames, 2)
 
-    
     def test_plot_network_fixed_axis_limits(self):
         """Verify that the plot uses the specified simulation box size."""
 
@@ -170,7 +248,6 @@ class TestVisualization(unittest.TestCase):
         self.assertEqual(ax.get_xlim(), (0.0, 12.0))
         self.assertEqual(ax.get_ylim(), (0.0, 12.0))
         self.assertEqual(ax.get_zlim(), (0.0, 12.0))
-
 
     def tearDown(self):
         """Close all Matplotlib figures after each test."""
