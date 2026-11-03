@@ -2,7 +2,7 @@
 
 A reproducible, coarse-grained **3D free-radical gelation simulator** for the
 *Heterogeneous Gelation Visualization Software* group project. This repository
-contains **structure generation and data export only**. 
+contains structure generation, data export, and 3D network visualization tools.
 
 ## Model in brief
 
@@ -125,6 +125,72 @@ particles = final_network.particles  # np.ndarray[Particle], shape (N,)
 edges = final_network.bonds        # np.ndarray[int], shape (M, 2)
 step = final_network.time
 ```
+## Visualization
+
+The `visualization.py` module provides 3D visualizations of polymer networks and their evolution during gelation.
+
+Particles are colored by species:
+- **Blue:** Monomer
+- **Orange:** Crosslinker
+- **Green:** Initiator
+
+Bonds are represented by gray lines. When the simulation box length is provided, bonds crossing periodic boundaries are split using the minimum-image convention.
+
+### Visualize a single network
+
+```python
+from gelation_sim.visualization import plot_network
+
+fig = plot_network(result.network, box_length=config.box_length_nm)
+fig.savefig("network.png", dpi=150)
+```
+
+### Generate figures for all snapshots
+
+```python
+from gelation_sim.visualization import plot_snapshots
+
+plot_snapshots(
+    result.snapshots,
+    "figures/batch",
+    box_length=config.box_length_nm,
+)
+```
+
+This generates a PNG file for each saved simulation snapshot. Files are named according to their simulation step, such as `step_000000.png` and `step_000020.png`.
+
+### Create an animated GIF
+
+```python
+from gelation_sim.visualization import animate_snapshots
+
+animate_snapshots(
+    result.snapshots,
+    "figures/gelation_animation.gif",
+    box_length=config.box_length_nm,
+)
+```
+
+The animation displays the evolution of the polymer network, including particle movement and bond formation. Each frame is labeled with its simulation step.
+
+### Visualize an existing simulation
+
+Previously exported results can be loaded without rerunning the simulation:
+
+```python
+from gelation_sim.export import load_result
+from gelation_sim.visualization import animate_snapshots
+
+result = load_result("runs/quickstart")
+
+animate_snapshots(
+    result.snapshots,
+    "figures/gelation_animation.gif",
+    box_length=result.config.box_length_nm,
+)
+```
+
+Providing `box_length` is recommended for simulations using periodic boundaries and ensures consistent axis limits across frames.
 
 ## Public interfacial contract
 
@@ -243,7 +309,8 @@ gelation_project/
 │   ├── config.py
 │   ├── model.py
 │   ├── simulator.py
-│   └── export.py
+│   ├── export.py
+│   └── visualization.py
 ├── tests/
 ├── .github/workflows/
 │   ├── func_tests.yml
