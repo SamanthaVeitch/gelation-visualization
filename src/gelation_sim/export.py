@@ -19,6 +19,22 @@ PARTICLE_FIELDS = (
 )
 BOND_FIELDS = ("particle_a", "particle_b", "form_time")
 EVENT_FIELDS = ("step", "reaction", "particle_a", "particle_b")
+VALIDATION_EQUATION_FIELDS = (
+    "",
+    "Time (s)",
+    "[I] (mol/L)",
+    "[M] (mol/L)",
+    "[P radical] (mol/L)",
+    "Ni",
+    "Nm",
+    "Nr",
+    "Initiator fraction remaining",
+    "Initiation rate (mol/(L*s))",
+    "Radical disappearance rate (mol/(L*s))",
+    "Simulated polymerization rate (mol/(L*s))",
+    "Theoretical steady-state radical concentration (mol/L)",
+    "Theoretical steady-state polymerization rate (mol/(L*s))",
+)
 
 
 def _write_csv(path: Path, fields: tuple[str, ...], rows: list) -> None:
@@ -119,6 +135,42 @@ def export_result(
         json.dump(manifest, handle, indent=2, sort_keys=True)
         handle.write("\n")
     return root
+
+
+def export_validation(rows, constants, output_dir):
+    """Write assembled validation data to two CSV files.
+
+    Parameters:
+        rows: Snapshot tuples from calc_validation_rows().
+        constants: Tuples from calc_validation_constants().
+        output_dir: Destination directory.
+
+    Returns:
+        Paths to the constants and equations CSV files.
+    """
+    root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=True)
+
+    constants_path = root / "validation_constants.csv"
+    equations_path = root / "validation_equations.csv"
+
+    constant_rows = [
+        (name, value, units)
+        for name, value, units in constants
+    ]
+
+    _write_csv(
+        constants_path,
+        ("Value", "", "Units"),
+        constant_rows,
+    )
+    _write_csv(
+        equations_path,
+        VALIDATION_EQUATION_FIELDS,
+        rows,
+    )
+
+    return constants_path, equations_path
 
 
 def load_network(

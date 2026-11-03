@@ -1,26 +1,31 @@
-name: style_check
+name: Style Check
 
 on:
   push:
-  #pull_request:
-    #branches:
-      #- main
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   style:
-    name: Style Check
+    name: PEP 8
     runs-on: ubuntu-latest
 
-    #steps:
-      #- name: Check out repository
-        #uses: actions/checkout@v7
+    defaults:
+      run:
+        shell: bash -el {0}
 
-      #- name: Set up gel environment
-        #uses: mamba-org/setup-micromamba@v3
-        #with:
-          #environment-file: environment.yml
-          #cache-environment: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
 
-      #- name: Run pycodestyle
-        #shell: bash -el {0}
-        #run: pycodestyle $(git ls-files "*.py")
+      - name: Set up gelation environment
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Check PEP 8
+        run: python -m pycodestyle src tests
